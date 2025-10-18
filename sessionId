@@ -162,4 +162,14 @@ function getDeviceInfo() {
 
   console.info('Canvas perturbation applied (seed=', SEED, ')');
 })();
-
+----------------------
+function detectCanvasTampering() {
+    const canvas = document.createElement("canvas");
+    const funcStr = HTMLCanvasElement.prototype.toDataURL.toString();
+    const pointerOk = (canvas.toDataURL === HTMLCanvasElement.prototype.toDataURL);
+         if (!funcStr.includes('[native code]') || !pointerOk) {
+        return "tampered";
+        } else {
+        return "not tampered";
+        }
+  }
