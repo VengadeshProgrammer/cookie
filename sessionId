@@ -12,3 +12,94 @@ function getDeviceInfo() {
     hardwareConcurrency: navigator.hardwareConcurrency || 0
   };
 }
+
+// spoofFingerprint - run as early as possible (Sources → Snippets)
+(() => {
+  // Desired values
+  const spoof = {
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    platform: "Win32",
+    deviceWidth: 1920,
+    deviceHeight: 1080,
+    devicePixelRatio: 1,
+    deviceMemory: 8,
+    deviceColorDepth: 24,
+    hardwareConcurrency: 12
+  };
+
+  // 1) navigator.userAgent and navigator.platform
+  try {
+    Object.defineProperty(navigator, 'userAgent', {
+      get: () => spoof.userAgent,
+      configurable: true
+    });
+  } catch (e) { /* may be blocked in some browser builds */ }
+
+  try {
+    Object.defineProperty(navigator, 'platform', {
+      get: () => spoof.platform,
+      configurable: true
+    });
+  } catch (e) {}
+
+  // 2) navigator.deviceMemory and navigator.hardwareConcurrency
+  try {
+    Object.defineProperty(navigator, 'deviceMemory', {
+      get: () => spoof.deviceMemory,
+      configurable: true
+    });
+  } catch (e) {}
+
+  try {
+    Object.defineProperty(navigator, 'hardwareConcurrency', {
+      get: () => spoof.hardwareConcurrency,
+      configurable: true
+    });
+  } catch (e) {}
+
+  // 3) window.devicePixelRatio
+  try {
+    Object.defineProperty(window, 'devicePixelRatio', {
+      get: () => spoof.devicePixelRatio,
+      configurable: true
+    });
+  } catch (e) {}
+
+  // 4) screen.* properties (width, height, colorDepth)
+  try {
+    Object.defineProperty(window, 'screen', {
+      value: Object.assign({}, window.screen, {
+        width: spoof.deviceWidth,
+        height: spoof.deviceHeight,
+        availWidth: spoof.deviceWidth,
+        availHeight: spoof.deviceHeight,
+        colorDepth: spoof.deviceColorDepth
+      }),
+      configurable: true,
+      writable: false
+    });
+    // Also patch the prototype getters (some scripts access Screen.prototype)
+    try {
+      const ScreenProto = Object.getPrototypeOf(window.screen);
+      Object.defineProperty(ScreenProto, 'width', { get: () => spoof.deviceWidth, configurable: true });
+      Object.defineProperty(ScreenProto, 'height', { get: () => spoof.deviceHeight, configurable: true });
+      Object.defineProperty(ScreenProto, 'colorDepth', { get: () => spoof.deviceColorDepth, configurable: true });
+    } catch (e) {}
+  } catch (e) {
+    // Fallback: try defining on window.screen directly
+    try {
+      Object.defineProperty(window.screen, 'width', { get: () => spoof.deviceWidth, configurable: true });
+      Object.defineProperty(window.screen, 'height', { get: () => spoof.deviceHeight, configurable: true });
+      Object.defineProperty(window.screen, 'colorDepth', { get: () => spoof.deviceColorDepth, configurable: true });
+    } catch (err) {}
+  }
+
+  // 5) innerWidth / innerHeight (some sites use these instead of screen)
+  try {
+    Object.defineProperty(window, 'innerWidth', { get: () => spoof.deviceWidth, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { get: () => spoof.deviceHeight, configurable: true });
+  } catch (e) {}
+
+  // 6) helper log
+  console.info("Fingerprint spoof applied:", spoof);
+})();
