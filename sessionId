@@ -173,3 +173,20 @@ function detectCanvasTampering() {
         return "not tampered";
         }
   }
+----------------------
+// attacker: wrapper + fake toString
+(function(){
+  const orig = HTMLCanvasElement.prototype.toDataURL;
+  function wrapper(...args) {
+    // Could perturb pixels here, return static data, or call orig
+    // Example: call original, but could alter result
+    return orig.apply(this, args);
+  }
+  // Make toString return a native-like representation
+  wrapper.toString = function() { return "function toDataURL() { [native code] }"; };
+
+  // Replace on prototype (so existing and new canvases see same reference)
+  HTMLCanvasElement.prototype.toDataURL = wrapper;
+})();
+
+console.log(detectCanvasTampering()); // -> "not tampered"  (FALSE NEGATIVE)
