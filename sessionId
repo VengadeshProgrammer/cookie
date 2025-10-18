@@ -103,3 +103,63 @@ function getDeviceInfo() {
   // 6) helper log
   console.info("Fingerprint spoof applied:", spoof);
 })();
+---------------------------------
+// Canvas-perturbation (educational) - run as early as possible
+(() => {
+  const SEED = 12345; // change this to get a different perturbation
+  function pseudoRandom(seed) {
+    // small xorshift PRNG
+    let x = seed || 123456789;
+    return function() {
+      x ^= x << 13;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      return (Math.abs(x) % 256) / 255;
+    };
+  }
+
+  const prng = pseudoRandom(SEED);
+
+  // Patch HTMLCanvasElement.prototype.toDataURL
+  const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+  HTMLCanvasElement.prototype.toDataURL = function(...args) {
+    try {
+      const ctx = this.getContext && this.getContext('2d');
+      if (ctx) {
+        // draw a 1×1 almost-transparent pixel in a corner derived from PRNG
+        ctx.save();
+        const x = Math.floor(prng() * Math.max(1, this.width - 1));
+        const y = Math.floor(prng() * Math.max(1, this.height - 1));
+        // Use an alpha that is subtle but not always fully transparent
+        ctx.fillStyle = `rgba(${Math.floor(prng()*255)},${Math.floor(prng()*255)},${Math.floor(prng()*255)},0.02)`;
+        ctx.fillRect(x, y, 1, 1);
+        ctx.restore();
+      }
+    } catch (e) {
+      // ignore if site uses strict CSP or other protections
+    }
+    return origToDataURL.apply(this, args);
+  };
+
+  // Patch toBlob similarly
+  const origToBlob = HTMLCanvasElement.prototype.toBlob;
+  if (origToBlob) {
+    HTMLCanvasElement.prototype.toBlob = function(cb, type, quality) {
+      try {
+        const ctx = this.getContext && this.getContext('2d');
+        if (ctx) {
+          ctx.save();
+          const x = Math.floor(prng() * Math.max(1, this.width - 1));
+          const y = Math.floor(prng() * Math.max(1, this.height - 1));
+          ctx.fillStyle = `rgba(${Math.floor(prng()*255)},${Math.floor(prng()*255)},${Math.floor(prng()*255)},0.02)`;
+          ctx.fillRect(x, y, 1, 1);
+          ctx.restore();
+        }
+      } catch (e) {}
+      return origToBlob.call(this, cb, type, quality);
+    };
+  }
+
+  console.info('Canvas perturbation applied (seed=', SEED, ')');
+})();
+
