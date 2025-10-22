@@ -1,0 +1,15 @@
+async function saveFingerprint() {
+  const record = await getFingerprint();
+  const json = JSON.stringify(record, null, 2);
+
+  const blob = new Blob([json + '\n'], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'record.jsonl';
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+saveFingerprint();
