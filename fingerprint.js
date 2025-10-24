@@ -22,9 +22,23 @@ function downsamplePixels(data, step = 100) {
   }
   return sampled;
 }
-
-export async function getFingerprint() {
+ async function getFingerprint() {
   const canvasFP = getCanvasFingerprint();
   const downsampledCanvasFP = downsamplePixels(canvasFP, 100);
   return downsampledCanvasFP;
 }
+async function saveFingerprint() {
+  const record = await getFingerprint();
+  const json = JSON.stringify(record, null, 2);
+
+  const blob = new Blob([json + '\n'], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'record.jsonl';
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+saveFingerprint();
