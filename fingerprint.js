@@ -95,17 +95,45 @@ function saveOptimizedWebGLFingerprint() {
     return downsampledFingerprint;
 }
 
+// function smartDownsample(pixels, width, height) {
+//     const downsampled = [];
+    
+//     // Sample every 8th pixel from all RGB channels
+//     for (let i = 0; i < pixels.length; i += 32) {
+//         downsampled.push(pixels[i]);       // R
+//         downsampled.push(pixels[i + 1]);   // G  
+//         downsampled.push(pixels[i + 2]);   // B
+//     }
+    
+//     return downsampled;
+// }
 function smartDownsample(pixels, width, height) {
+    const blockSize = 4; // WAS 16, NOW 4 (4x more detail)
     const downsampled = [];
     
-    // Sample every 8th pixel from all RGB channels
-    for (let i = 0; i < pixels.length; i += 32) {
-        downsampled.push(pixels[i]);       // R
-        downsampled.push(pixels[i + 1]);   // G  
-        downsampled.push(pixels[i + 2]);   // B
+    for (let y = 0; y < height; y += blockSize) {
+        for (let x = 0; x < width; x += blockSize) {
+            // Sample 4x4 block instead of 16x16
+            let r = 0, g = 0, b = 0;
+            let count = 0;
+            
+            for (let dy = 0; dy < blockSize && y + dy < height; dy++) {
+                for (let dx = 0; dx < blockSize && x + dx < width; dx++) {
+                    const idx = ((y + dy) * width + (x + dx)) * 4;
+                    r += pixels[idx];
+                    g += pixels[idx + 1];
+                    b += pixels[idx + 2];
+                    count++;
+                }
+            }
+            
+            downsampled.push(Math.round(r / count));
+            downsampled.push(Math.round(g / count));
+            downsampled.push(Math.round(b / count));
+        }
     }
     
-    return downsampled;
+    return downsampled; // Now ~12,288 values instead of 768
 }
 
 // Create button
