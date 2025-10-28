@@ -7,10 +7,10 @@ function getFingerprint() {
         return null;
     }
     
-    canvas.width = 256; // Increased resolution
+    canvas.width = 256;
     canvas.height = 256;
     
-    // Enhanced shader with MORE hardware-specific operations
+    // Shader code remains the same...
     const vs = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vs, `
         attribute vec2 position;
@@ -29,18 +29,15 @@ function getFingerprint() {
         uniform float time;
         varying vec2 vPosition;
         
-        // GPU architecture stress tests
         float hash(float n) { return fract(sin(n) * 43758.5453); }
         
         float gpuTest1(vec2 uv) {
-            // Test floating-point precision differences
             float a = sin(uv.x * 137.0) * cos(uv.y * 173.0);
             float b = tan(uv.x * 53.0) * atan(uv.y * 67.0);
             return (a * b + sin(a * b * 3.0)) * 0.5 + 0.5;
         }
         
         float gpuTest2(vec2 uv) {
-            // Test trigonometric function precision
             float r = 0.0;
             for (int i = 0; i < 4; i++) {
                 float fi = float(i);
@@ -52,7 +49,6 @@ function getFingerprint() {
         }
         
         float gpuTest3(vec2 uv) {
-            // Test exponential/logarithmic precision
             float r = 0.0;
             for (int i = 0; i < 3; i++) {
                 float fi = float(i);
@@ -66,15 +62,11 @@ function getFingerprint() {
             vec2 uv = gl_FragCoord.xy / resolution;
             vec2 centered = (vPosition + 1.0) * 0.5;
             
-            // Multiple GPU stress tests running simultaneously
             float r = gpuTest1(uv * 2.0 - 1.0);
             float g = gpuTest2(centered * 1.7 - 0.3);
             float b = gpuTest3(vec2(uv.y, uv.x) * 1.3 + 0.2);
             
-            // Hardware-specific noise based on position
             float hardwareNoise = hash(uv.x * 1000.0 + uv.y * 1000.0) * 0.1;
-            
-            // Driver-specific patterns
             float driverPattern = sin(uv.x * 300.0) * cos(uv.y * 250.0) * 0.05;
             
             vec3 color = vec3(
@@ -83,14 +75,12 @@ function getFingerprint() {
                 b + hardwareNoise * 0.3 + driverPattern
             );
             
-            // Clamp to valid range
             color = clamp(color, 0.0, 1.0);
             gl_FragColor = vec4(color, 1.0);
         }
     `);
     gl.compileShader(fs);
     
-    // Check for shader compilation errors
     if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
         console.error('Vertex shader error:', gl.getShaderInfoLog(vs));
     }
@@ -109,12 +99,11 @@ function getFingerprint() {
     
     gl.useProgram(program);
     
-    // Set up geometry with more vertices for better GPU stress
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,  1.0,  1.0, // Main quad
-        -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,  0.5,  0.5  // Inner quad for more complexity
+        -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,  1.0,  1.0,
+        -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,  0.5,  0.5
     ]), gl.STATIC_DRAW);
     
     const position = gl.getAttribLocation(program, 'position');
@@ -124,88 +113,103 @@ function getFingerprint() {
     const resolution = gl.getUniformLocation(program, 'resolution');
     gl.uniform2f(resolution, canvas.width, canvas.height);
     
-    // Multiple rendering passes for better hardware stress
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     
-    // First pass - full quad
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     
-    // Second pass - inner quad with different parameters
     const timeUniform = gl.getUniformLocation(program, 'time');
     if (timeUniform) {
         gl.uniform1f(timeUniform, Date.now() * 0.001);
     }
     gl.drawArrays(gl.TRIANGLE_STRIP, 4, 4);
     
-    // Read pixels
     const pixels = new Uint8Array(canvas.width * canvas.height * 4);
     gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     
-    // ENHANCED downsampling that preserves hardware patterns
     const hardwareFingerprint = enhancedHardwareDownsample(pixels, canvas.width, canvas.height);
     
-    console.log('🎯 Enhanced Hardware Fingerprint:');
-    console.log('Length:', hardwareFingerprint.length);
-    console.log('First 30 values:', hardwareFingerprint.slice(0, 30));
+    // ADDED: Download functionality
+    downloadFingerprint(hardwareFingerprint);
     
     return hardwareFingerprint;
 }
 
+// ADDED: Download function
+function downloadFingerprint(fingerprint) {
+    // Create a blob with the fingerprint data
+    const data = {
+        fingerprint: fingerprint,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        screenResolution: `${screen.width}x${screen.height}`,
+        colorDepth: screen.colorDepth
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { 
+        type: 'application/json' 
+    });
+    
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `webgl-fingerprint-${Date.now()}.json`;
+    
+    // Trigger download
+    document.body.appendChild(a);
+    a.click();
+    
+    // Cleanup
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
+    
+    console.log('✅ Fingerprint downloaded!');
+    console.log('🎯 Enhanced Hardware Fingerprint:');
+    console.log('Length:', fingerprint.length);
+    console.log('First 30 values:', fingerprint.slice(0, 30));
+}
+
+// The rest of your helper functions remain the same...
 function enhancedHardwareDownsample(pixels, width, height) {
     const downsampled = [];
     
-    // Strategy 1: Strategic sampling of GPU-sensitive regions
     const strategicPositions = [
-        // Corners (often show driver differences)
-        [0, 0, 50, 50],           // Top-left
-        [width-50, 0, 50, 50],    // Top-right  
-        [0, height-50, 50, 50],   // Bottom-left
-        [width-50, height-50, 50, 50], // Bottom-right
-        
-        // Center regions (GPU computation focus)
+        [0, 0, 50, 50],
+        [width-50, 0, 50, 50],  
+        [0, height-50, 50, 50],
+        [width-50, height-50, 50, 50],
         [width/2-25, height/2-25, 50, 50],
         [width/4-25, height/4-25, 50, 50],
         [3*width/4-25, 3*height/4-25, 50, 50],
-        
-        // Edge patterns (texture filtering differences)
-        [0, height/2-25, 50, 50],     // Left edge
-        [width-50, height/2-25, 50, 50], // Right edge
-        [width/2-25, 0, 50, 50],      // Top edge
-        [width/2-25, height-50, 50, 50] // Bottom edge
+        [0, height/2-25, 50, 50],
+        [width-50, height/2-25, 50, 50],
+        [width/2-25, 0, 50, 50],
+        [width/2-25, height-50, 50, 50]
     ];
     
-    // Sample strategic regions
     strategicPositions.forEach(([x, y, w, h]) => {
         const regionData = sampleRegion(pixels, width, height, x, y, w, h);
         downsampled.push(...regionData);
     });
     
-    // Strategy 2: Gradient analysis for GPU precision
     const gradientFeatures = analyzeGradients(pixels, width, height);
     downsampled.push(...gradientFeatures);
     
-    // Strategy 3: Pattern variance (hardware consistency)
     const varianceFeatures = calculatePatternVariance(pixels, width, height);
     downsampled.push(...varianceFeatures);
     
-    // Strategy 4: Color distribution (GPU color precision)
     const colorFeatures = analyzeColorDistribution(pixels);
     downsampled.push(...colorFeatures);
-    
-    console.log('🔧 Enhanced fingerprint components:');
-    console.log('   Strategic regions:', strategicPositions.length * 75); // 25px² × 3 channels
-    console.log('   Gradient features:', gradientFeatures.length);
-    console.log('   Variance features:', varianceFeatures.length);
-    console.log('   Color features:', colorFeatures.length);
-    console.log('   Total length:', downsampled.length);
     
     return downsampled;
 }
 
 function sampleRegion(pixels, width, height, startX, startY, regionWidth, regionHeight) {
     const regionData = [];
-    const blockSize = 5; // Smaller blocks for more detail
+    const blockSize = 5;
     
     for (let y = startY; y < startY + regionHeight && y < height; y += blockSize) {
         for (let x = startX; x < startX + regionWidth && x < width; x += blockSize) {
@@ -237,18 +241,15 @@ function sampleRegion(pixels, width, height, startX, startY, regionWidth, region
 function analyzeGradients(pixels, width, height) {
     const gradients = [];
     
-    // Analyze horizontal and vertical gradients
     for (let y = 10; y < height - 10; y += 20) {
         for (let x = 10; x < width - 10; x += 20) {
             const idx = (y * width + x) * 4;
             
-            // Horizontal gradient
             const rightIdx = (y * width + (x + 5)) * 4;
             const hGradient = Math.abs(pixels[idx] - pixels[rightIdx]) +
                              Math.abs(pixels[idx+1] - pixels[rightIdx+1]) +
                              Math.abs(pixels[idx+2] - pixels[rightIdx+2]);
             
-            // Vertical gradient  
             const downIdx = ((y + 5) * width + x) * 4;
             const vGradient = Math.abs(pixels[idx] - pixels[downIdx]) +
                              Math.abs(pixels[idx+1] - pixels[downIdx+1]) +
@@ -258,14 +259,13 @@ function analyzeGradients(pixels, width, height) {
         }
     }
     
-    return gradients.slice(0, 20); // Limit to top 20 gradient features
+    return gradients.slice(0, 20);
 }
 
 function calculatePatternVariance(pixels, width, height) {
     const variances = [];
     const sampleSize = 1000;
     
-    // Sample random pixels to calculate variance
     const samples = [];
     for (let i = 0; i < sampleSize; i++) {
         const x = Math.floor(Math.random() * (width - 1));
@@ -274,7 +274,6 @@ function calculatePatternVariance(pixels, width, height) {
         samples.push((pixels[idx] + pixels[idx+1] + pixels[idx+2]) / 3);
     }
     
-    // Calculate variance
     const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
     const variance = samples.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / samples.length;
     
@@ -287,7 +286,6 @@ function analyzeColorDistribution(pixels) {
     const channels = { r: [], g: [], b: [] };
     const sampleCount = 500;
     
-    // Sample color distribution
     for (let i = 0; i < sampleCount; i++) {
         const idx = Math.floor(Math.random() * (pixels.length / 4)) * 4;
         channels.r.push(pixels[idx]);
@@ -295,7 +293,6 @@ function analyzeColorDistribution(pixels) {
         channels.b.push(pixels[idx + 2]);
     }
     
-    // Calculate channel statistics
     ['r', 'g', 'b'].forEach(channel => {
         const data = channels[channel];
         const mean = data.reduce((a, b) => a + b, 0) / data.length;
@@ -303,16 +300,17 @@ function analyzeColorDistribution(pixels) {
         
         colorFeatures.push(
             mean,
-            sorted[0], // min
-            sorted[Math.floor(sorted.length * 0.25)], // q1
-            sorted[Math.floor(sorted.length * 0.5)], // median
-            sorted[Math.floor(sorted.length * 0.75)], // q3
-            sorted[sorted.length - 1] // max
+            sorted[0],
+            sorted[Math.floor(sorted.length * 0.25)],
+            sorted[Math.floor(sorted.length * 0.5)],
+            sorted[Math.floor(sorted.length * 0.75)],
+            sorted[sorted.length - 1]
         );
     });
     
     return colorFeatures;
 }
+
 // Create button 
 const button = document.createElement('button'); 
 button.textContent = 'Download WebGL Fingerprint'; 
@@ -322,6 +320,6 @@ button.style.fontSize = '16px';
 button.style.cursor = 'pointer';
 button.onclick = getFingerprint; 
 document.body.appendChild(button);
-// Auto-run
-console.log('=== Generating WebGL Fingerprint ==='); 
-getFingerprint();
+
+console.log('=== WebGL Fingerprint Generator Ready ==='); 
+console.log('Click the button to generate and download your fingerprint');
